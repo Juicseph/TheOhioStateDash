@@ -553,7 +553,8 @@
     .profile-status-icons{margin:0;display:inline-flex;vertical-align:middle}
     .content-panel.collapsed .recruit-list,
     .content-panel.collapsed .board-view,
-    .content-panel.collapsed .profile-scroll{display:none!important}
+    .content-panel.collapsed .profile-scroll,
+    .content-panel.collapsed .mass-delete-toolbar{display:none!important}
     .content-panel.collapsed{min-height:auto}
     .panel-header-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
     .panel-collapse-btn{border:1px solid var(--line);background:#fff;color:var(--text);border-radius:12px;padding:7px 10px;font-size:12px;font-weight:900;cursor:pointer}
@@ -2639,24 +2640,27 @@
     @media (max-width:760px){.topbar-logo{width:38px;height:38px}.sidebar-brand h1{font-size:20px}.sidebar-logo{width:64px;height:64px}.topbar-brand-row{align-items:flex-start}}
 
 
-    /* Mass delete controls */
+    /* Compact mass delete controls */
     .mass-delete-toolbar{
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:10px;
+      gap:8px;
       flex-wrap:wrap;
-      margin:12px 16px 0;
-      padding:10px 12px;
+      margin:8px 16px 0;
+      padding:7px 9px;
       border:1px solid var(--line);
-      border-radius:14px;
+      border-radius:12px;
       background:#fbfdff;
+      box-shadow:none;
     }
-    .mass-delete-copy{font-size:12px;color:var(--muted);font-weight:800;}
-    .mass-delete-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+    .mass-delete-copy{font-size:11px;color:var(--muted);font-weight:900;white-space:nowrap;}
+    .mass-delete-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+    .mass-delete-actions .btn{padding:7px 9px;border-radius:10px;font-size:11px;line-height:1;font-weight:900;}
     .btn.danger{background:#b42318;color:#fff;}
     .btn.danger:disabled,.btn.secondary:disabled{opacity:.45;cursor:not-allowed;}
     body.theme-dark .mass-delete-toolbar{background:#0b1220!important;border-color:#334155!important;}
+    @media (max-width:700px){.mass-delete-toolbar{align-items:flex-start}.mass-delete-actions .btn{padding:7px 8px}}
 
   </style>
 </head>
