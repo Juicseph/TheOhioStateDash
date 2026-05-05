@@ -3602,7 +3602,7 @@
         return;
       }
       const label = selectedIds.length === 1 ? '1 recruit' : `${selectedIds.length} recruits`;
-      if(!window.confirm(`Delete ${label} from this dashboard? This will also keep them hidden after live refresh on this browser.`)) return;
+      if(!window.confirm(`Delete ${label} from this dashboard? Refresh will pull them back from the live sheet unless they are removed from the sheet too.`)) return;
       selectedIds.forEach(id => {
         if(recruitDetails[id]) deletedRecruitIds.add(recruitMatchKey(recruitDetails[id]));
         deletedRecruitIds.add(String(id));
@@ -4304,6 +4304,11 @@ Let me know when you have time to connect. We're excited to stay in touch.
         return;
       }
       try{
+        // Refresh should always reflect the live sheet. Clear local delete-hide cache so synced rows render again.
+        if(deletedRecruitIds && deletedRecruitIds.size){
+          deletedRecruitIds.clear();
+          saveDeletedRecruitIds();
+        }
         setLiveStatus('Live Sheet: Refreshing...');
         const res = await fetch(LIVE_SHEET_WEBAPP_URL, {cache:'no-store'});
         if(!res.ok) throw new Error(`HTTP ${res.status}`);
