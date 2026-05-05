@@ -2638,6 +2638,26 @@
     body.theme-dark .btn.secondary{background:#151515!important;color:#f7f7f7!important;border-color:#333!important;}
     @media (max-width:760px){.topbar-logo{width:38px;height:38px}.sidebar-brand h1{font-size:20px}.sidebar-logo{width:64px;height:64px}.topbar-brand-row{align-items:flex-start}}
 
+
+    /* Mass delete controls */
+    .mass-delete-toolbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      margin:12px 16px 0;
+      padding:10px 12px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fbfdff;
+    }
+    .mass-delete-copy{font-size:12px;color:var(--muted);font-weight:800;}
+    .mass-delete-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+    .btn.danger{background:#b42318;color:#fff;}
+    .btn.danger:disabled,.btn.secondary:disabled{opacity:.45;cursor:not-allowed;}
+    body.theme-dark .mass-delete-toolbar{background:#0b1220!important;border-color:#334155!important;}
+
   </style>
 </head>
 <body>
@@ -2780,6 +2800,14 @@
                 <p id="listMeta">Click a card to view the full profile.</p>
               </div>
               <button class="panel-collapse-btn" id="recruitListCollapseBtn" type="button">Collapse</button>
+            </div>
+          </div>
+          <div class="mass-delete-toolbar" id="massDeleteToolbar">
+            <div class="mass-delete-copy" id="massDeleteMeta">0 selected</div>
+            <div class="mass-delete-actions">
+              <button class="btn secondary" id="selectVisibleBtn" type="button">Select Visible</button>
+              <button class="btn secondary" id="clearSelectedBtn" type="button">Clear Selected</button>
+              <button class="btn danger" id="deleteSelectedBtn" type="button" disabled>Delete Selected</button>
             </div>
           </div>
           <div class="recruit-list" id="recruitList"></div>
@@ -3394,6 +3422,7 @@
     const DASHBOARD_PASSWORD = 'buckeyes';
     const PASSWORD_SESSION_KEY = 'recruit_board_unlocked_v1';
     const STORAGE_KEY = 'recruit_board_clean_build_v1';
+    const DELETED_RECRUIT_IDS_KEY = 'recruit_board_deleted_ids_v1';
     const TUTORIAL_SEEN_KEY = 'recruit_board_tutorial_seen_v1';
     const PULSE_COLLAPSE_KEY = 'recruit_board_pulse_collapsed_v1';
     const ROSTER_MATRIX_KEY = 'recruit_board_roster_matrix_v1';
@@ -3503,6 +3532,7 @@
     let activeTournamentAssignId = '';
     let activeWeekendTournamentId = localStorage.getItem(WEEKEND_MODE_KEY) || '';
     let activeCommunicationRecruitId = '';
+    let deletedRecruitIds = loadDeletedRecruitIds();
 
     const appShell = document.getElementById('appShell');
     const passwordGate = document.getElementById('passwordGate');
@@ -3539,6 +3569,54 @@
     function saveData(){
       localStorage.setItem(STORAGE_KEY, JSON.stringify(recruitDetails));
     }
+    function loadDeletedRecruitIds(){
+      try{ return new Set(JSON.parse(localStorage.getItem(DELETED_RECRUIT_IDS_KEY) || '[]').map(String)); }catch(e){ return new Set(); }
+    }
+    function saveDeletedRecruitIds(){
+      localStorage.setItem(DELETED_RECRUIT_IDS_KEY, JSON.stringify([...deletedRecruitIds]));
+    }
+    function updateMassDeleteControls(){
+      if(!massDeleteMeta || !deleteSelectedBtn) return;
+      const selected = Object.entries(recruitDetails || {}).filter(([id, recruit]) => recruit && recruit.selected && !deletedRecruitIds.has(String(id)));
+      const count = selected.length;
+      massDeleteMeta.textContent = `${count} selected${filteredIds.length ? ` • ${filteredIds.length} visible` : ''}`;
+      deleteSelectedBtn.disabled = count === 0;
+      if(clearSelectedBtn) clearSelectedBtn.disabled = count === 0;
+    }
+    function clearSelectedRecruits(){
+      Object.values(recruitDetails || {}).forEach(recruit => { if(recruit) recruit.selected = false; });
+      saveData();
+      rebuildRecruitList(selectedRecruitId);
+    }
+    function selectVisibleRecruits(){
+      filteredIds.forEach(id => { if(recruitDetails[id]) recruitDetails[id].selected = true; });
+      saveData();
+      rebuildRecruitList(selectedRecruitId);
+    }
+    function deleteSelectedRecruits(){
+      const selectedIds = Object.entries(recruitDetails || {})
+        .filter(([id, recruit]) => recruit && recruit.selected && !deletedRecruitIds.has(String(id)))
+        .map(([id]) => String(id));
+      if(!selectedIds.length){
+        updateMassDeleteControls();
+        return;
+      }
+      const label = selectedIds.length === 1 ? '1 recruit' : `${selectedIds.length} recruits`;
+      if(!window.confirm(`Delete ${label} from this dashboard? This will also keep them hidden after live refresh on this browser.`)) return;
+      selectedIds.forEach(id => {
+        if(recruitDetails[id]) deletedRecruitIds.add(recruitMatchKey(recruitDetails[id]));
+        deletedRecruitIds.add(String(id));
+        delete recruitDetails[id];
+      });
+      compareIds = compareIds.filter(id => !selectedIds.includes(String(id)));
+      if(selectedIds.includes(String(selectedRecruitId))){
+        selectedRecruitId = Object.keys(recruitDetails || {}).find(id => !deletedRecruitIds.has(String(id)) && !deletedRecruitIds.has(recruitMatchKey(recruitDetails[id]))) || '';
+      }
+      saveDeletedRecruitIds();
+      saveData();
+      rebuildRecruitList(selectedRecruitId);
+    }
+
     function loadCollapsedSections(){
       const defaults = {commitWatchCard:true, boardHealthCard:false, clubCoachCard:false, rosterMatrixCard:true, compensationPlannerCard:true, eventTrackerCard:true, manualTournamentsCard:true};
       try{ return {...defaults, ...JSON.parse(localStorage.getItem(PULSE_COLLAPSE_KEY) || '{}')}; }catch(e){ return defaults; }
@@ -4196,6 +4274,7 @@ Let me know when you have time to connect. We're excited to stay in touch.
         const stableRawId = row?.id || row?.fullName || row?.name || i + 1;
         const liveId = String(stableRawId) + '_' + i;
         const liveMatch = recruitMatchKey(liveRecruit);
+        if(deletedRecruitIds.has(String(liveId)) || deletedRecruitIds.has(liveMatch)) return;
         const localPair = localById.has(liveId)
           ? [liveId, localById.get(liveId)]
           : localByMatch.get(liveMatch);
@@ -4210,6 +4289,7 @@ Let me know when you have time to connect. We're excited to stay in touch.
 
       // Keep recruits created manually in the dashboard that do not exist in the sheet.
       localEntries.forEach(([id, recruit]) => {
+        if(deletedRecruitIds.has(String(id)) || deletedRecruitIds.has(recruitMatchKey(recruit))) return;
         if(!seenLocalIds.has(id)){
           next[id] = recruit;
         }
@@ -5245,7 +5325,7 @@ Let me know when you have time to connect. We're excited to stay in touch.
     }
 
     function rebuildRecruitList(activeId){
-      const recruits = Object.entries(recruitDetails).map(([id, recruit])=>({id, ...recruit}));
+      const recruits = Object.entries(recruitDetails).filter(([id, recruit]) => !deletedRecruitIds.has(String(id)) && !deletedRecruitIds.has(recruitMatchKey(recruit))).map(([id, recruit])=>({id, ...recruit}));
       populateFilterOptions(recruits);
       updateSnapshot(recruits);
       renderQuickFilterChips(recruits);
@@ -5374,6 +5454,7 @@ Let me know when you have time to connect. We're excited to stay in touch.
         box.addEventListener('change', ()=>{
           recruitDetails[box.dataset.check].selected = box.checked;
           saveData();
+          updateMassDeleteControls();
         });
       });
       recruitList.querySelectorAll('[data-compare]').forEach(btn=>{ btn.addEventListener('click', e=>{ e.stopPropagation(); toggleCompareRecruit(btn.dataset.compare); }); });
@@ -5383,8 +5464,13 @@ Let me know when you have time to connect. We're excited to stay in touch.
       renderCompensationPlanner();
       renderProfile(selectedRecruitId);
       setBoardView(currentBoardView);
+      updateMassDeleteControls();
       saveData();
     }
+
+    if(selectVisibleBtn) selectVisibleBtn.addEventListener('click', selectVisibleRecruits);
+    if(clearSelectedBtn) clearSelectedBtn.addEventListener('click', clearSelectedRecruits);
+    if(deleteSelectedBtn) deleteSelectedBtn.addEventListener('click', deleteSelectedRecruits);
 
     function setBoardView(view){
       currentBoardView = view;
